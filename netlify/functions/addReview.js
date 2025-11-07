@@ -12,31 +12,6 @@ const supabase = createClient(
 const GEMINI_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent";
 
-// Define JSON schema for structured output
-const REVIEW_ANALYSIS_SCHEMA = {
-  type: "object",
-  properties: {
-    safety_score: {
-      type: "number",
-      description: "Safety score between 0 (safe) and 1 (unsafe)",
-      minimum: 0,
-      maximum: 1
-    },
-    sentiment_score: {
-      type: "number",
-      description: "Sentiment score between -1 (negative) and 1 (positive)",
-      minimum: -1,
-      maximum: 1
-    },
-    action: {
-      type: "string",
-      description: "Recommended action for the review",
-      enum: ["allow", "flag", "block"]
-    }
-  },
-  required: ["safety_score", "sentiment_score", "action"]
-};
-
 // Helper to safely parse JSON
 function safeJSON(text) {
   try {
@@ -86,39 +61,46 @@ export default async function handler(request, context) {
       );
     }
 
-    // 1️⃣ Call Gemini API with structured output
-    const prompt = `Analyze the following customer review and classify it based on safety and sentiment.
+    // 1️⃣ Call Gemini API
+    const prompt = `You are a strict JSON-only classifier. Analyze this customer review and respond ONLY with a valid JSON object.
 
 Review Content: "${content}"
 
-Provide:
-1. A safety_score (0 = completely safe, 1 = extremely unsafe/harmful)
-2. A sentiment_score (-1 = very negative, 0 = neutral, 1 = very positive)
-3. An action recommendation:
-   - "allow": Safe, constructive review (safety < 0.3)
-   - "flag": Needs manual review (safety 0.3-0.7 or borderline sentiment)
-   - "block": Unsafe, spam, or highly inappropriate (safety >= 0.7)
+Respond with a JSON object in this exact format (no markdown, no code blocks, just pure JSON):
+{
+  "safety_score": <number between 0 and 1>,
+  "sentiment_score": <number between -1 and 1>,
+  "action": "allow" or "flag" or "block"
+}
 
-Consider:
-- Profanity, hate speech, threats, or harassment (increase safety_score)
-- Spam or promotional content (increase safety_score)
-- Overall tone: positive, neutral, or negative (affects sentiment_score)
-- Constructive criticism is allowed (low safety_score, may be negative sentiment)`;
+Guidelines:
+- safety_score: 0 = completely safe, 1 = extremely unsafe/harmful
+  * Increase for: profanity, hate speech, threats, harassment, spam
+- sentiment_score: -1 = very negative, 0 = neutral, 1 = very positive
+  * Based on overall tone and opinion expressed
+- action recommendations:
+  * "allow": Safe, constructive review (safety < 0.3)
+  * "flag": Needs manual review (safety 0.3-0.7 or unclear)
+  * "block": Unsafe, spam, or highly inappropriate (safety >= 0.7)
 
-    console.log("Calling Gemini API with structured output...");
+Important: Constructive criticism is allowed (low safety_score, may have negative sentiment).
 
-    // ✅ USE STRUCTURED OUTPUT with responseMimeType and responseSchema
+Respond with ONLY the JSON object, nothing else.`;
+
+    console.log("Calling Gemini API...");
+
     const geminiResponse = await fetch(
       `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: REVIEW_ANALYSIS_SCHEMA
-          }
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
         }),
       }
     );
@@ -139,10 +121,18 @@ Consider:
 
     const modelText =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    console.log("Gemini structured output:", modelText);
+    console.log("Gemini raw output:", modelText);
 
-    // Parse the structured JSON response
-    const result = safeJSON(modelText) || {};
+    // Clean up markdown code blocks if present
+    let cleanText = modelText.trim();
+    if (cleanText.startsWith("```json")) {
+      cleanText = cleanText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+    } else if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/```\n?/g, "");
+    }
+
+    // Parse the JSON response
+    const result = safeJSON(cleanText) || {};
     const safety = result.safety_score ?? 0.5; // Default to flag if parsing fails
     const sentiment = result.sentiment_score ?? 0;
     const action = result.action ?? "flag";
