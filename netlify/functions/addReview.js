@@ -150,7 +150,10 @@ Respond with ONLY the JSON object, nothing else.`;
     }
 
     // 3️⃣ Insert into Supabase
-    const { error: insertError } = await supabase.from("reviews").insert([
+    // Insert review and return inserted row (including ID) to frontend
+  const { data: insertedReviews, error: insertError } = await supabase
+    .from("reviews")
+    .insert([
       {
         business_id,
         reviewer_name,
@@ -159,8 +162,10 @@ Respond with ONLY the JSON object, nothing else.`;
         status,
         sentiment_score: sentiment,
         is_positive: sentiment > 0,
+        pinned: false // default new reviews aren't pinned
       },
-    ]);
+    ])
+    .select(); // will return the inserted row including its ID
 
     if (insertError) {
       console.error("Supabase insert error:", insertError);
@@ -183,7 +188,8 @@ Respond with ONLY the JSON object, nothing else.`;
           safety_score: safety,
           sentiment_score: sentiment,
           recommended_action: action
-        }
+        },
+      review: insertedReviews?.[0] || null
       }),
       {
         status: 200,
