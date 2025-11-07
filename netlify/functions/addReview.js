@@ -141,8 +141,7 @@ Respond with ONLY the JSON object, nothing else.`;
 
     // 2️⃣ Determine status based on Gemini's recommendation
     let status = "pending";
-    if (action === "allow" && safety < 0.3) {
-      status = "approved";
+ if (action === "allow" && safety < 0.3 && sentiment > 0.3) {      status = "approved";
     } else if (action === "block" || safety >= 0.7) {
       status = "flagged";
     } else {
