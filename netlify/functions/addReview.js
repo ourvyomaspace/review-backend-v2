@@ -1,14 +1,6 @@
 // netlify/functions/addReview.js
-
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
-
-/*
-  Netlify function version of addReview:
-  - Accepts POST requests from your Framer form
-  - Uses Gemini API to check content
-  - Inserts review into Supabase "reviews" table
-*/
 
 // Initialize Supabase client using environment variables
 const supabase = createClient(
@@ -16,12 +8,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-// Gemini endpoint
+// ✅ CORRECTED: Use stable v1 API with proper model name
 const GEMINI_ENDPOINT =
-const GEMINI_ENDPOINT =
-const GEMINI_ENDPOINT =
- const GEMINI_ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent";
 
 // Helper to safely parse JSON
 function safeJSON(text) {
@@ -32,51 +21,59 @@ function safeJSON(text) {
   }
 }
 
-// ✅ Netlify-style export
-export async function handler(event) {
+// ✅ CORRECTED: Use default export with new handler signature
+export default async function handler(request, context) {
   try {
     // Only allow POST
-    if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
+    if (request.method !== "POST") {
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        {
+          status: 405,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Parse body (from Framer)
-    const body = JSON.parse(event.body || "{}");
+    const body = await request.json();
     const { business_id, reviewer_name, phone, content } = body;
 
     if (!business_id || !reviewer_name || !phone || !content) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing required fields" }),
-      };
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Optional: verify secret header
-    const secret = event.headers["x-webhook-secret"];
+    const secret = request.headers.get("x-webhook-secret");
     if (process.env.WEBHOOK_SECRET && secret !== process.env.WEBHOOK_SECRET) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid webhook secret" }),
-      };
+      return new Response(
+        JSON.stringify({ error: "Invalid webhook secret" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     // 1️⃣ Call Gemini API
-  const prompt = `
+    const prompt = `
 You are a strict JSON-only classifier.
 Analyze this review and respond ONLY with a valid JSON object in this format:
-
 {
-  "safety_score": number,  // between 0 (safe) and 1 (unsafe)
-  "sentiment_score": number,  // between -1 (negative) and 1 (positive)
-  "action": "allow" | "flag" | "block"
+ "safety_score": number, // between 0 (safe) and 1 (unsafe)
+ "sentiment_score": number, // between -1 (negative) and 1 (positive)
+ "action": "allow" | "flag" | "block"
 }
-
 Review: """${content}"""
 `;
-console.log("Prompt sent to Gemini:", prompt);
+
+    console.log("Prompt sent to Gemini:", prompt);
 
     const geminiResponse = await fetch(
       `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_KEY}`,
@@ -90,11 +87,24 @@ console.log("Prompt sent to Gemini:", prompt);
     );
 
     const geminiData = await geminiResponse.json();
+    
+    // Check for API errors
+    if (geminiData.error) {
+      console.error("Gemini API error:", geminiData.error);
+      return new Response(
+        JSON.stringify({ error: `Gemini API error: ${geminiData.error.message}` }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const modelText =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     console.log("Gemini raw output:", JSON.stringify(geminiData, null, 2));
-    const result = safeJSON(modelText) || {};
 
+    const result = safeJSON(modelText) || {};
     const safety = result.safety_score ?? 0;
     const sentiment = result.sentiment_score ?? 0;
     const action = result.action ?? "flag";
@@ -119,26 +129,35 @@ console.log("Prompt sent to Gemini:", prompt);
 
     if (insertError) {
       console.error("Supabase insert error:", insertError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: insertError.message }),
-      };
+      return new Response(
+        JSON.stringify({ error: insertError.message }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     // 4️⃣ Return success
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
+    return new Response(
+      JSON.stringify({
         ok: true,
         message: "Review received successfully.",
         status,
       }),
-    };
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (err) {
     console.error("Server error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Internal error" }),
-    };
+    return new Response(
+      JSON.stringify({ error: err.message || "Internal error" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
