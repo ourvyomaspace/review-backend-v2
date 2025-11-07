@@ -57,17 +57,26 @@ export default async function handler(request, context) {
     }
 
     // If newReviewId is provided, reorder to show it at top (session-based)
-    let orderedReviews = reviews;
-    if (newReviewId) {
-      const newReviewIndex = reviews.findIndex(r => r.id === parseInt(newReviewId));
-      if (newReviewIndex > -1) {
-        const newReview = reviews[newReviewIndex];
-        orderedReviews = [
-          newReview,
-          ...reviews.slice(0, newReviewIndex),
-          ...reviews.slice(newReviewIndex + 1)
-        ];
-      }
+    // Session-based ordering: new review at top, then pinned reviews, then others
+  let orderedReviews = reviews;
+  if (newReviewId) {
+    const newReviewIndex = reviews.findIndex(r => r.id === parseInt(newReviewId));
+    if (newReviewIndex > -1) {
+      const newReview = reviews[newReviewIndex];
+      const remainingReviews = reviews.filter(r => r.id !== parseInt(newReviewId));
+      
+      // Separate pinned and unpinned reviews
+      const pinnedReviews = remainingReviews.filter(r => r.pinned);
+      const unpinnedReviews = remainingReviews.filter(r => !r.pinned);
+      
+      // Order: New review first, then pinned, then unpinned
+      orderedReviews = [
+        newReview,
+        ...pinnedReviews,
+        ...unpinnedReviews
+      ];
+    }
+  }
     }
 
     return new Response(
