@@ -207,7 +207,7 @@ Respond with ONLY the JSON object, nothing else.`;
       }),
       {
         status: 200,
-        headers: {...corsHeaders,Content-Type": "application/json" },
+        headers: {...corsHeaders,"Content-Type": "application/json" },
       }
     );
   } catch (err) {
@@ -216,7 +216,7 @@ Respond with ONLY the JSON object, nothing else.`;
       JSON.stringify({ error: err.message || "Internal error" }),
       {
         status: 500,
-        headers: {...corsHeaders,Content-Type": "application/json" },
+        headers: {...corsHeaders,"Content-Type": "application/json" },
       }
     );
   }
