@@ -33,6 +33,7 @@ module.exports = async function handler(request, context) {
   if (request.method === "OPTIONS") {
     return new Response(
       JSON.stringify({ ok: true }),
+    
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
