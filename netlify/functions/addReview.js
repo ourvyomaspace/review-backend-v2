@@ -2,7 +2,7 @@
 const fetch = require("node-fetch");
 const { createClient } = require("@supabase/supabase-js")
   const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://empowered-thanks-164053.framer.app",
   "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
