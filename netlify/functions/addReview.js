@@ -1,6 +1,12 @@
 // netlify/functions/addReview.js
 import fetch from "node-fetch";
 import { createClient } from "@supabase/supabase-js";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 
 // Initialize Supabase client using environment variables
 const supabase = createClient(
@@ -23,14 +29,23 @@ function safeJSON(text) {
 
 // ✅ CORRECTED: Use default export with new handler signature
 export default async function handler(request, context) {
+    // CORS preflight for Framer/Netlify
+  if (request.method === "OPTIONS") {
+    return new Response(
+      JSON.stringify({ ok: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
+  
     // Only allow POST
     if (request.method !== "POST") {
       return new Response(
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders,ontent-Type": "application/json" },
         }
       );
     }
@@ -43,7 +58,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Missing required fields" }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders,ontent-Type": "application/json" },
         }
       );
     }
@@ -55,7 +70,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Invalid webhook secret" }),
         {
           status: 401,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders,ontent-Type": "application/json" },
         }
       );
     }
@@ -113,7 +128,7 @@ Respond with ONLY the JSON object, nothing else.`;
         JSON.stringify({ error: `Gemini API error: ${geminiData.error.message}` }),
         {
           status: 500,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders,ontent-Type": "application/json" },
         }
       );
     }
@@ -172,7 +187,7 @@ Respond with ONLY the JSON object, nothing else.`;
         JSON.stringify({ error: insertError.message }),
         {
           status: 500,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders,ontent-Type": "application/json" },
         }
       );
     }
@@ -192,7 +207,7 @@ Respond with ONLY the JSON object, nothing else.`;
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: {...corsHeaders,Content-Type": "application/json" },
       }
     );
   } catch (err) {
@@ -201,7 +216,7 @@ Respond with ONLY the JSON object, nothing else.`;
       JSON.stringify({ error: err.message || "Internal error" }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: {...corsHeaders,Content-Type": "application/json" },
       }
     );
   }
