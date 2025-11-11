@@ -1,6 +1,7 @@
 // netlify/functions/addReview.js
 const fetch = require("node-fetch");
-const { createClient } = require("@supabase/supabase-js");const corsHeaders = {
+const { createClient } = require("@supabase/supabase-js")
+  const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
