@@ -12,6 +12,13 @@ const supabase = createClient(
 const GEMINI_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent";
 
+// ✅ Global CORS headers
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", // or replace * with your Framer domain for tighter security
+  "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 // Helper to safely parse JSON
 function safeJSON(text) {
   try {
@@ -23,6 +30,11 @@ function safeJSON(text) {
 
 // ✅ CORRECTED: Use default export with new handler signature
 export default async function handler(request, context) {
+  // ✅ Handle CORS preflight OPTIONS request
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
   try {
     // Only allow POST
     if (request.method !== "POST") {
@@ -30,7 +42,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
@@ -39,11 +51,12 @@ export default async function handler(request, context) {
     const body = await request.json();
     const { business_id, reviewer_name, phone, email, content } = body;
 
-    if (!business_id || !reviewer_name || !phone || !content) {      return new Response(
+    if (!business_id || !reviewer_name || !phone || !content) {
+      return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
@@ -55,7 +68,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Invalid webhook secret" }),
         {
           status: 401,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
@@ -105,15 +118,17 @@ Respond with ONLY the JSON object, nothing else.`;
     );
 
     const geminiData = await geminiResponse.json();
-    
+
     // Check for API errors
     if (geminiData.error) {
       console.error("Gemini API error:", geminiData.error);
       return new Response(
-        JSON.stringify({ error: `Gemini API error: ${geminiData.error.message}` }),
+        JSON.stringify({
+          error: `Gemini API error: ${geminiData.error.message}`,
+        }),
         {
           status: 500,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
@@ -136,11 +151,14 @@ Respond with ONLY the JSON object, nothing else.`;
     const sentiment = result.sentiment_score ?? 0;
     const action = result.action ?? "flag";
 
-    console.log(`Analysis: safety=${safety}, sentiment=${sentiment}, action=${action}`);
+    console.log(
+      `Analysis: safety=${safety}, sentiment=${sentiment}, action=${action}`
+    );
 
     // 2️⃣ Determine status based on Gemini's recommendation
     let status = "pending";
- if (action === "allow" && safety < 0.3 && sentiment > 0.3) {      status = "approved";
+    if (action === "allow" && safety < 0.3 && sentiment > 0.3) {
+      status = "approved";
     } else if (action === "block" || safety >= 0.7) {
       status = "flagged";
     } else {
@@ -148,23 +166,22 @@ Respond with ONLY the JSON object, nothing else.`;
     }
 
     // 3️⃣ Insert into Supabase
-    // Insert review and return inserted row (including ID) to frontend
-  const { data: insertedReviews, error: insertError } = await supabase
-    .from("reviews")
-    .insert([
-      {
-        business_id,
-        reviewer_name,
-        phone,
-                email,
-        content,
-        status,
-        sentiment_score: sentiment,
-        is_positive: sentiment > 0,
-        pinned: false // default new reviews aren't pinned
-      },
-    ])
-    .select(); // will return the inserted row including its ID
+    const { data: insertedReviews, error: insertError } = await supabase
+      .from("reviews")
+      .insert([
+        {
+          business_id,
+          reviewer_name,
+          phone,
+          email,
+          content,
+          status,
+          sentiment_score: sentiment,
+          is_positive: sentiment > 0,
+          pinned: false,
+        },
+      ])
+      .select();
 
     if (insertError) {
       console.error("Supabase insert error:", insertError);
@@ -172,7 +189,7 @@ Respond with ONLY the JSON object, nothing else.`;
         JSON.stringify({ error: insertError.message }),
         {
           status: 500,
-          headers: { "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
@@ -186,13 +203,13 @@ Respond with ONLY the JSON object, nothing else.`;
         analysis: {
           safety_score: safety,
           sentiment_score: sentiment,
-          recommended_action: action
+          recommended_action: action,
         },
-      review: insertedReviews?.[0] || null
+        review: insertedReviews?.[0] || null,
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (err) {
@@ -201,7 +218,7 @@ Respond with ONLY the JSON object, nothing else.`;
       JSON.stringify({ error: err.message || "Internal error" }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }
