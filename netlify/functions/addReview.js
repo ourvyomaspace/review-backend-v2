@@ -45,7 +45,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: { ...corsHeaders,ontent-Type": "application/json" },
+          headers: { ...corsHeaders,"Content-Type": "application/json" },
         }
       );
     }
@@ -58,7 +58,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Missing required fields" }),
         {
           status: 400,
-          headers: { ...corsHeaders,ontent-Type": "application/json" },
+          headers: { ...corsHeaders,"Content-Type": "application/json" },
         }
       );
     }
@@ -70,7 +70,7 @@ export default async function handler(request, context) {
         JSON.stringify({ error: "Invalid webhook secret" }),
         {
           status: 401,
-          headers: { ...corsHeaders,ontent-Type": "application/json" },
+          headers: { ...corsHeaders,"Content-Type": "application/json" },
         }
       );
     }
@@ -128,7 +128,7 @@ Respond with ONLY the JSON object, nothing else.`;
         JSON.stringify({ error: `Gemini API error: ${geminiData.error.message}` }),
         {
           status: 500,
-          headers: { ...corsHeaders,ontent-Type": "application/json" },
+          headers: { ...corsHeaders,"Content-Type": "application/json" },
         }
       );
     }
@@ -187,7 +187,7 @@ Respond with ONLY the JSON object, nothing else.`;
         JSON.stringify({ error: insertError.message }),
         {
           status: 500,
-          headers: { ...corsHeaders,ontent-Type": "application/json" },
+          headers: { ...corsHeaders,"Content-Type": "application/json" },
         }
       );
     }
