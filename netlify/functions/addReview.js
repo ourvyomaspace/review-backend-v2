@@ -1,7 +1,6 @@
 // netlify/functions/addReview.js
-import fetch from "node-fetch";
-import { createClient } from "@supabase/supabase-js";
-const corsHeaders = {
+const fetch = require("node-fetch");
+const { createClient } = require("@supabase/supabase-js");const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, x-webhook-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -28,7 +27,7 @@ function safeJSON(text) {
 }
 
 // ✅ CORRECTED: Use default export with new handler signature
-export default async function handler(request, context) {
+module.exports = async function handler(request, context) {
     // CORS preflight for Framer/Netlify
   if (request.method === "OPTIONS") {
     return new Response(
